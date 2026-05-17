@@ -1,0 +1,524 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  SALES
+  MANAGER
+}
+
+enum CustomerType {
+  PRIVATKUNDE
+  FAMILIE
+  FIRMA
+  SELBSTSTAENDIG
+}
+
+enum ContactMethod {
+  TELEFON
+  WHATSAPP
+  EMAIL
+  PERSOENLICH
+}
+
+enum CustomerSource {
+  SHOP
+  EMPFEHLUNG
+  AUSSENDIENST
+  WEBSITE
+  SOCIAL_MEDIA
+  BESTANDSKUNDE
+  SONSTIGE
+}
+
+enum CustomerStatus {
+  AKTIV
+  INAKTIV
+  POTENZIELL
+  VERLOREN
+  GESPERRT
+}
+
+enum BusinessPotential {
+  NIEDRIG
+  MITTEL
+  HOCH
+}
+
+enum ContractType {
+  MOBILFUNK
+  FESTNETZ
+  GLASFASER
+  MAGENTA_TV
+  ZUSATZKARTE
+  BUSINESS_MOBILFUNK
+  BUSINESS_FESTNETZ
+  GERAET
+  VERSICHERUNG
+  ZUBEHOER
+  SONSTIGES
+}
+
+enum ContractStatus {
+  AKTIV
+  BALD_VERLAENGERBAR
+  VERLAENGERBAR
+  GEKUENDIGT
+  VERLAENGERT
+  VERLOREN
+  UNKLAR
+}
+
+enum CommissionStatus {
+  OFFEN
+  ERWARTET
+  ERHALTEN
+  TEILWEISE_ERHALTEN
+  ABWEICHEND
+  STORNIERT
+}
+
+enum OpportunityType {
+  VERTRAGSVERLAENGERUNG
+  NEUVERTRAG
+  GLASFASER
+  FESTNETZ
+  MAGENTA_TV
+  ZUSATZKARTE
+  GERAETEVERKAUF
+  ZUBEHOERVERKAUF
+  VERSICHERUNG
+  BUSINESS_TARIF
+  TARIFWECHSEL
+  WINBACK
+  EMPFEHLUNG
+  SONSTIGER_UPSELL
+}
+
+enum OpportunityPriority {
+  NIEDRIG
+  MITTEL
+  HOCH
+  SEHR_HOCH
+}
+
+enum OpportunityStatus {
+  NEU
+  KONTAKTIERT
+  ANGEBOT_ERSTELLT
+  WARTET_AUF_ANTWORT
+  NACHFASSEN_NOETIG
+  GEWONNEN
+  VERLOREN
+  STORNIERT
+}
+
+enum TaskType {
+  ANRUF
+  WHATSAPP
+  EMAIL
+  ANGEBOT_SENDEN
+  NACHFASSEN
+  VERTRAG_PRUEFEN
+  PROVISION_PRUEFEN
+  DOKUMENT_NACHREICHEN
+  SONSTIGES
+}
+
+enum TaskStatus {
+  OFFEN
+  ERLEDIGT
+  UEBERFAELLIG
+  VERSCHOBEN
+}
+
+enum TaskPriority {
+  NIEDRIG
+  MITTEL
+  HOCH
+  SEHR_HOCH
+}
+
+enum InteractionType {
+  ANRUF
+  WHATSAPP
+  EMAIL
+  MEETING
+  NOTIZ
+}
+
+enum OfferStatus {
+  ERSTELLT
+  GESENDET
+  INTERESSIERT
+  WARTET_AUF_ANTWORT
+  ANGENOMMEN
+  ABGELEHNT
+  ABGELAUFEN
+}
+
+enum CommissionRuleType {
+  FIXED
+  PERCENTAGE
+  PRODUCT_PERCENTAGE
+  MANUAL
+}
+
+enum PayoutStatus {
+  OFFEN
+  FREIGEGEBEN
+  AUSGEZAHLT
+  GESPERRT
+  STORNIERT
+}
+
+enum TriggerType {
+  DAYS_BEFORE_CONTRACT_END
+  DAYS_AFTER_CONTRACT_END
+  DAYS_AFTER_OFFER_SENT
+  DAYS_WITHOUT_CONTACT
+  DAYS_AFTER_CLOSE
+}
+
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  passwordHash   String?
+  role           UserRole @default(SALES)
+  phone          String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  assignedCustomers Customer[]      @relation("AssignedUser")
+  assignedContracts Contract[]      @relation("AssignedUser")
+  opportunities     Opportunity[]   @relation("AssignedUser")
+  tasks             Task[]          @relation("AssignedUser")
+  interactions      Interaction[]
+  offers            Offer[]
+  commissions       Commission[]
+  commissionRules   CommissionRule[]
+  aiLogs            AiLog[]
+  managedTeams      Team[]          @relation("TeamManager")
+  teamMemberships   TeamMember[]
+
+  @@map("users")
+}
+
+model Team {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  managerId   String?
+  manager     User?        @relation("TeamManager", fields: [managerId], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  members     TeamMember[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id       String   @id @default(cuid())
+  teamId   String
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id])
+  joinedAt DateTime @default(now())
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+model Customer {
+  id                       String            @id @default(cuid())
+  internalNumber           String?           @unique
+  firstName                String
+  lastName                 String
+  companyName              String?
+  customerType             CustomerType      @default(PRIVATKUNDE)
+  phone                    String?
+  email                    String?
+  address                  String?
+  zip                      String?
+  city                     String?
+  birthDate                DateTime?
+  preferredContact         ContactMethod     @default(TELEFON)
+  source                   CustomerSource    @default(BESTANDSKUNDE)
+  assignedUserId           String?
+  assignedUser             User?             @relation("AssignedUser", fields: [assignedUserId], references: [id])
+  status                   CustomerStatus    @default(AKTIV)
+  tags                     String[]          @default([])
+  notes                    String?
+  gdprConsent              Boolean           @default(false)
+  gdprConsentDate          DateTime?
+  lastContactAt            DateTime?
+  nextContactAt            DateTime?
+
+  maritalStatus            String?
+  householdSize            Int?
+  hasChildren              Boolean?
+  potentialAdditionalCards Boolean?
+  currentMobileProvider    String?
+  currentLandlineProvider  String?
+  interestedInMagentaTV    Boolean?
+  interestedInGlasfaser    Boolean?
+  interestedInDevice       Boolean?
+
+  contactPerson            String?
+  industry                 String?
+  employeeCount            Int?
+  possibleSimCards         Int?
+  currentProvider          String?
+  needsLandline            Boolean?
+  needsInternet            Boolean?
+  needsMobile              Boolean?
+  needsDevices             Boolean?
+  businessPotential        BusinessPotential?
+
+  aiLeadScore              Int?
+  aiLeadScoreUpdatedAt     DateTime?
+
+  reactivatedAt            DateTime?
+
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
+
+  contracts                Contract[]
+  opportunities            Opportunity[]
+  tasks                    Task[]
+  interactions             Interaction[]
+  offers                   Offer[]
+  commissions              Commission[]
+  aiLogs                   AiLog[]
+
+  @@map("customers")
+}
+
+model Contract {
+  id                         String           @id @default(cuid())
+  customerId                 String
+  customer                   Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedUserId             String?
+  assignedUser               User?            @relation("AssignedUser", fields: [assignedUserId], references: [id])
+  contractType               ContractType
+  provider                   String           @default("Telekom")
+  tariffName                 String
+  contractNumber             String?
+  contractStart              DateTime?
+  contractEnd                DateTime?
+  minimumTermMonths          Int?
+  cancellationPeriodDays     Int?             @default(90)
+  cancellationDeadline       DateTime?
+  renewalPossibleFrom        DateTime?
+  devicePurchased            Boolean?
+  deviceName                 String?
+  monthlyPrice               Decimal?         @db.Decimal(10, 2)
+  oneTimePayment             Decimal?         @db.Decimal(10, 2)
+  addons                     String[]         @default([])
+  magentaEins                Boolean?
+  status                     ContractStatus   @default(AKTIV)
+  expectedProviderCommission Decimal?         @db.Decimal(10, 2)
+  receivedProviderCommission Decimal?         @db.Decimal(10, 2)
+  commissionStatus           CommissionStatus @default(OFFEN)
+  notes                      String?
+  createdAt                  DateTime         @default(now())
+  updatedAt                  DateTime         @updatedAt
+
+  opportunities              Opportunity[]
+  tasks                      Task[]
+  commissions                Commission[]
+
+  @@map("contracts")
+}
+
+model Opportunity {
+  id                 String              @id @default(cuid())
+  customerId         String
+  customer           Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contractId         String?
+  contract           Contract?           @relation(fields: [contractId], references: [id])
+  assignedUserId     String?
+  assignedUser       User?              @relation("AssignedUser", fields: [assignedUserId], references: [id])
+  type               OpportunityType
+  estimatedRevenue   Decimal?            @db.Decimal(10, 2)
+  expectedCommission Decimal?            @db.Decimal(10, 2)
+  probability        Int                 @default(50)
+  priority           OpportunityPriority @default(MITTEL)
+  status             OpportunityStatus   @default(NEU)
+  nextStep           String?
+  nextActionDate     DateTime?
+  lostReason         String?
+  aiRecommendation   String?
+  closedAt           DateTime?
+  notes              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  tasks              Task[]
+  commissions        Commission[]
+  offers             Offer[]
+
+  @@map("opportunities")
+}
+
+model Task {
+  id             String       @id @default(cuid())
+  customerId     String?
+  customer       Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contractId     String?
+  contract       Contract?    @relation(fields: [contractId], references: [id])
+  opportunityId  String?
+  opportunity    Opportunity? @relation(fields: [opportunityId], references: [id])
+  assignedUserId String?
+  assignedUser   User?        @relation("AssignedUser", fields: [assignedUserId], references: [id])
+  title          String
+  taskType       TaskType     @default(ANRUF)
+  dueDate        DateTime?
+  dueTime        String?
+  priority       TaskPriority @default(MITTEL)
+  status         TaskStatus   @default(OFFEN)
+  resultNote     String?
+  autoCreated    Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  completedAt    DateTime?
+  updatedAt      DateTime     @updatedAt
+
+  @@map("tasks")
+}
+
+model Interaction {
+  id         String          @id @default(cuid())
+  customerId String
+  customer   Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User            @relation(fields: [userId], references: [id])
+  type       InteractionType
+  summary    String
+  result     String?
+  nextStep   String?
+  createdAt  DateTime        @default(now())
+
+  @@map("interactions")
+}
+
+model Offer {
+  id                 String       @id @default(cuid())
+  customerId         String
+  customer           Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  opportunityId      String?
+  opportunity        Opportunity? @relation(fields: [opportunityId], references: [id])
+  userId             String
+  user               User         @relation(fields: [userId], references: [id])
+  productName        String
+  tariffName         String?
+  deviceName         String?
+  monthlyPrice       Decimal?     @db.Decimal(10, 2)
+  oneTimePayment     Decimal?     @db.Decimal(10, 2)
+  contractDuration   Int?
+  addons             String[]     @default([])
+  expectedCommission Decimal?     @db.Decimal(10, 2)
+  offerDate          DateTime     @default(now())
+  validUntil         DateTime?
+  status             OfferStatus  @default(ERSTELLT)
+  followUpDate       DateTime?
+  notes              String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@map("offers")
+}
+
+model CommissionRule {
+  id          String             @id @default(cuid())
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ruleName    String
+  ruleType    CommissionRuleType
+  productType ContractType?
+  fixedAmount Decimal?           @db.Decimal(10, 2)
+  percentage  Decimal?           @db.Decimal(5, 2)
+  active      Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@map("commission_rules")
+}
+
+model Commission {
+  id                         String              @id @default(cuid())
+  customerId                 String
+  customer                   Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contractId                 String?
+  contract                   Contract?           @relation(fields: [contractId], references: [id])
+  opportunityId              String?
+  opportunity                Opportunity?        @relation(fields: [opportunityId], references: [id])
+  userId                     String
+  user                       User                @relation(fields: [userId], references: [id])
+  productType                ContractType
+  dealDate                   DateTime
+  expectedProviderCommission Decimal?            @db.Decimal(10, 2)
+  receivedProviderCommission Decimal?            @db.Decimal(10, 2)
+  appliedRuleType            CommissionRuleType?
+  calculatedSalesCommission  Decimal?            @db.Decimal(10, 2)
+  manualAdjustment           Decimal?            @db.Decimal(10, 2)
+  finalSalesCommission       Decimal?            @db.Decimal(10, 2)
+  payoutStatus               PayoutStatus        @default(OFFEN)
+  payoutDate                 DateTime?
+  chargebackUntil            DateTime?
+  adminNote                  String?
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime            @updatedAt
+
+  @@map("commissions")
+}
+
+model Product {
+  id                        String       @id @default(cuid())
+  productType               ContractType
+  name                      String
+  provider                  String       @default("Telekom")
+  defaultExpectedCommission Decimal?     @db.Decimal(10, 2)
+  active                    Boolean      @default(true)
+  notes                     String?
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
+
+  @@map("products")
+}
+
+model ReminderRule {
+  id          String      @id @default(cuid())
+  name        String
+  triggerType TriggerType
+  daysOffset  Int
+  taskTitle   String
+  taskType    TaskType
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("reminder_rules")
+}
+
+model AiLog {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  type       String
+  prompt     String    @db.Text
+  response   String    @db.Text
+  createdAt  DateTime  @default(now())
+
+  @@map("ai_logs")
+}
